@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audits Audit[]
+}
+
+model Machine {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  feeders Feeder[]
+  audits  Audit[]
+}
+
+model FeederType {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  displayName String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  feeders Feeder[]
+}
+
+model Feeder {
+  id           Int         @id @default(autoincrement())
+  label        String
+  feederTypeId Int
+  machineId    Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  feederType FeederType @relation(fields: [feederTypeId], references: [id])
+  machine    Machine?   @relation(fields: [machineId], references: [id])
+  audits     Audit[]
+
+  @@index([machineId])
+  @@index([feederTypeId])
+}
+
+model Audit {
+  id        Int      @id @default(autoincrement())
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  userId    Int?
+  feederId  Int?
+  machineId Int?
+
+  user    User?    @relation(fields: [userId], references: [id])
+  feeder  Feeder?  @relation(fields: [feederId], references: [id])
+  machine Machine? @relation(fields: [machineId], references: [id])
+
+  @@index([createdAt])
+}
