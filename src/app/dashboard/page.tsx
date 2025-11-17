@@ -67,6 +67,14 @@ export default function DashboardPage() {
   >({});
   const [busy, setBusy] = useState(false);
 
+  const feederTypeNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    feederTypes.forEach((ft) => {
+      map[ft.code] = ft.displayName || ft.code;
+    });
+    return map;
+  }, [feederTypes]);
+
   useEffect(() => {
     const stored = localStorage.getItem("token");
     if (!stored) {
@@ -158,9 +166,13 @@ export default function DashboardPage() {
         (grouped[feeder.feederType.code] ?? 0) + 1;
     }
     return Object.entries(grouped)
-      .map(([code, count]) => ({ code, count }))
+      .map(([code, count]) => ({
+        code,
+        displayName: feederTypeNameMap[code] ?? code,
+        count,
+      }))
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [freeFeeders]);
+  }, [freeFeeders, feederTypeNameMap]);
 
   const auditTotalPages = Math.max(1, Math.ceil((auditTotal || 0) / 10));
 
@@ -235,6 +247,29 @@ export default function DashboardPage() {
       if (user) {
         await refreshData(token, user.role);
       }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteMachine = async (machineId: number) => {
+    if (!token || !user || user.role !== "ADMIN") return;
+    if (!window.confirm("Makineyi silmek istediğine emin misin?")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/machines/${machineId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Silme başarısız");
+      }
+      await refreshData(token, user.role);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -386,6 +421,7 @@ export default function DashboardPage() {
       setError("Kendi hesabını silemezsin");
       return;
     }
+    if (!window.confirm("Kullanıcıyı silmek istediğine emin misin?")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/users/${userId}`, {
@@ -462,7 +498,7 @@ export default function DashboardPage() {
                     className="rounded-lg border border-slate-200 px-3 py-2 bg-slate-50"
                   >
                     <div className="text-sm font-semibold text-slate-800">
-                      {item.code}
+                      {item.displayName}
                     </div>
                     <div className="text-xs text-slate-500">{item.count} parça</div>
                   </div>
@@ -502,7 +538,7 @@ export default function DashboardPage() {
             {machines.map((machine) => (
               <div
                 key={machine.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -513,9 +549,19 @@ export default function DashboardPage() {
                       {machine.feeders.length} feeder takılı
                     </p>
                   </div>
+                  {user.role === "ADMIN" && (
+                    <button
+                      disabled={busy}
+                      onClick={() => handleDeleteMachine(machine.id)}
+                      className="h-8 w-8 flex items-center justify-center rounded-md border border-red-200 text-red-600 text-base font-semibold hover:bg-red-50"
+                      aria-label="Makineyi sil"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1 flex-1 min-h-0">
                   {machine.feeders.length === 0 ? (
                     <p className="text-sm text-slate-500">Feeder takılı değil.</p>
                   ) : (
@@ -529,15 +575,16 @@ export default function DashboardPage() {
                             {feeder.label}
                           </div>
                           <div className="text-xs text-slate-500">
-                            {feeder.feederType.code}
+                            {feeder.feederType.displayName ?? feeder.feederType.code}
                           </div>
                         </div>
                         <button
                           disabled={busy}
                           onClick={() => handleUnassign(machine.id, feeder.id)}
-                          className="text-xs rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100"
+                          className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-300 text-slate-600 text-base font-semibold hover:bg-slate-100"
+                          aria-label="Sök"
                         >
-                          Sök
+                          ×
                         </button>
                       </div>
                     ))
@@ -547,7 +594,7 @@ export default function DashboardPage() {
                 {freeFeeders.length > 0 && (
                   <div className="mt-3 flex items-center gap-2">
                     <select
-                      className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      className="h-10 flex-1 rounded-lg border border-slate-300 px-3 text-sm"
                       value={assignSelection[machine.id] ?? 0}
                       onChange={(e) =>
                         setAssignSelection((prev) => ({
@@ -559,14 +606,18 @@ export default function DashboardPage() {
                       <option value={0}>Boştaki feeder seç</option>
                       {freeFeeders.map((feeder) => (
                         <option key={feeder.id} value={feeder.id}>
-                          {feeder.label} ({feeder.feederType.code})
+                          {feeder.label} (
+                          {feederTypeNameMap[feeder.feederType.code] ??
+                            feeder.feederType.displayName ??
+                            feeder.feederType.code}
+                          )
                         </option>
                       ))}
                     </select>
                     <button
                       disabled={busy || !assignSelection[machine.id]}
                       onClick={() => handleAssign(machine.id)}
-                      className="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-semibold hover:bg-blue-700"
+                      className="h-10 rounded-lg bg-blue-600 text-white px-4 text-sm font-semibold hover:bg-blue-700"
                     >
                       Tak
                     </button>
@@ -577,14 +628,14 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {user.role === "ADMIN" && (
-          <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {user.role === "ADMIN" ? (
+          <section className="grid gap-4 md:grid-cols-2 items-stretch">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-3">
               <h2 className="text-lg font-semibold text-slate-900">Stok Ekle</h2>
               <div className="space-y-2">
                 <label className="text-sm text-slate-600">Feeder tipi</label>
                 <select
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
                   value={newFeederTypeId ?? ""}
                   onChange={(e) =>
                     setNewFeederTypeId(
@@ -605,7 +656,7 @@ export default function DashboardPage() {
                 <input
                   type="number"
                   min={1}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
                   value={newFeederQty}
                   onChange={(e) => setNewFeederQty(Number(e.target.value))}
                 />
@@ -613,19 +664,19 @@ export default function DashboardPage() {
               <button
                 disabled={busy || !newFeederTypeId}
                 onClick={handleAddFeeders}
-                className="w-full rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800"
+                className="w-full h-11 rounded-lg bg-slate-900 text-white px-4 text-sm font-semibold hover:bg-slate-800 mt-auto"
               >
                 Stoka ekle
               </button>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-3">
               <h2 className="text-lg font-semibold text-slate-900">Makine Oluştur</h2>
               <div className="space-y-2">
                 <label className="text-sm text-slate-600">Makine adı</label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
                   value={newMachineName}
                   onChange={(e) => setNewMachineName(e.target.value)}
                   placeholder="Hanwha ..."
@@ -634,7 +685,30 @@ export default function DashboardPage() {
               <button
                 disabled={busy || !newMachineName}
                 onClick={handleAddMachine}
-                className="w-full rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800"
+                className="w-full h-11 rounded-lg bg-slate-900 text-white px-4 text-sm font-semibold hover:bg-slate-800 mt-auto"
+              >
+                Makine ekle
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="grid gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-3">
+              <h2 className="text-lg font-semibold text-slate-900">Makine Oluştur</h2>
+              <div className="space-y-2">
+                <label className="text-sm text-slate-600">Makine adı</label>
+                <input
+                  type="text"
+                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                  value={newMachineName}
+                  onChange={(e) => setNewMachineName(e.target.value)}
+                  placeholder="Hanwha ..."
+                />
+              </div>
+              <button
+                disabled={busy || !newMachineName}
+                onClick={handleAddMachine}
+                className="w-full h-11 rounded-lg bg-slate-900 text-white px-4 text-sm font-semibold hover:bg-slate-800 mt-auto"
               >
                 Makine ekle
               </button>

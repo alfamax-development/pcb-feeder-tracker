@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   let userId: number | undefined;
   try {
-    const { user } = await requireAuth(req, [Role.ADMIN]);
+    const { user } = await requireAuth(req, [Role.ADMIN, Role.OPERATOR]);
     userId = user.id;
   } catch (err) {
     return NextResponse.json(
