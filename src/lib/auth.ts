@@ -5,6 +5,7 @@ import { Role } from "@prisma/client";
 import prisma from "./prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? "30m";
 
 export type TokenPayload = {
   userId: number;
@@ -32,7 +33,7 @@ export async function login(username: string, password: string) {
   const token = jwt.sign(
     { userId: user.id, username: user.username, role: user.role },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: JWT_EXPIRES_IN }
   );
 
   return {

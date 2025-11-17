@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let userId: number | undefined;
   try {
@@ -16,7 +16,8 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const machineId = Number(params.id);
+  const { id } = await params;
+  const machineId = Number(id);
   const { feederId } = await req.json();
 
   if (!feederId) {

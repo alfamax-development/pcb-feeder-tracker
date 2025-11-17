@@ -1,5 +1,5 @@
-import bcrypt from "bcryptjs";
-import { PrismaClient, Role } from "@prisma/client";
+const bcrypt = require("bcryptjs");
+const { PrismaClient, Role } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
@@ -38,10 +38,7 @@ async function seedFeederTypes() {
 }
 
 async function seedMachines() {
-  const machines = [
-    { name: "Hanwha DecanS1" },
-    { name: "Hanwha SM471+" },
-  ];
+  const machines = [{ name: "Hanwha DecanS1" }, { name: "Hanwha SM471+" }];
 
   for (const machine of machines) {
     await prisma.machine.upsert({
@@ -53,7 +50,7 @@ async function seedMachines() {
 }
 
 async function seedFeeders() {
-  const stockPlan: Record<string, number> = {
+  const stockPlan = {
     SME8: 19,
     SM8: 90,
     SM12: 15,

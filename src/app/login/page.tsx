@@ -40,11 +40,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200">
         <h1 className="text-2xl font-semibold text-slate-900 mb-6 text-center">
-          PCB Feeder Tracker
+          Feeder Takip Uygulaması
         </h1>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="text-sm font-medium text-slate-700">Username</label>
+            <label className="text-sm font-medium text-slate-700">Kullanıcı Adı</label>
             <input
               type="text"
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -55,7 +55,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700">Password</label>
+            <label className="text-sm font-medium text-slate-700">Şifre</label>
             <input
               type="password"
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -78,9 +78,7 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Login"}
           </button>
         </form>
-        <p className="mt-4 text-xs text-slate-500 text-center">
-          admin/admin123 · op/operator123
-        </p>
+        
       </div>
     </div>
   );
