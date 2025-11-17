@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -65,6 +66,8 @@ export default function DashboardPage() {
   const [userEdits, setUserEdits] = useState<
     Record<number, { username: string; role: Role; password: string }>
   >({});
+  const [removeFeederTypeId, setRemoveFeederTypeId] = useState<number | undefined>();
+  const [removeFeederQty, setRemoveFeederQty] = useState(1);
   const [busy, setBusy] = useState(false);
 
   const feederTypeNameMap = useMemo(() => {
@@ -331,6 +334,34 @@ export default function DashboardPage() {
     }
   };
 
+  const handleRemoveFeeders = async () => {
+    if (!removeFeederTypeId || !token) return;
+    if (!window.confirm("Seçili stokları silmek istediğine emin misin?")) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/feeders", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ feederTypeId: removeFeederTypeId, quantity: removeFeederQty }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Silme başarısız");
+      }
+      setRemoveFeederQty(1);
+      if (user) {
+        await refreshData(token, user.role);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUserName || !newUserPassword || !token) return;
     setBusy(true);
@@ -456,17 +487,20 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
+      <header className="bg-orange-500 text-white shadow-sm">
         <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Feeder Takip Uygulaması</h1>
-            <p className="text-sm text-slate-500">
-              Giriş yapan: {user.username} ({user.role})
-            </p>
+          <div className="flex items-center gap-4">
+            <Image src="/logo-white.png" alt="PCB Feeder Takip" width={160} height={40} />
+            <div className="flex flex-col">
+              <h1 className="text-xl font-semibold leading-tight">PCB Feeder Takip</h1>
+              <span className="text-sm text-orange-50/90">
+                Giriş yapan: <span className="font-semibold">{user.username}</span> ({user.role})
+              </span>
+            </div>
           </div>
           <button
             onClick={handleLogout}
-            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800"
+            className="rounded-lg bg-white text-orange-700 px-4 py-2 text-sm font-semibold hover:bg-orange-50 border border-orange-200"
           >
             Çıkış
           </button>
@@ -630,44 +664,59 @@ export default function DashboardPage() {
 
         {user.role === "ADMIN" ? (
           <section className="grid gap-4 md:grid-cols-2 items-stretch">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-3">
-              <h2 className="text-lg font-semibold text-slate-900">Stok Ekle</h2>
-              <div className="space-y-2">
-                <label className="text-sm text-slate-600">Feeder tipi</label>
-                <select
-                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
-                  value={newFeederTypeId ?? ""}
-                  onChange={(e) =>
-                    setNewFeederTypeId(
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900">Stok Yönetimi</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-600">Feeder tipi</label>
+                  <select
+                    className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                    value={newFeederTypeId ?? ""}
+                    onChange={(e) =>
+                      setNewFeederTypeId(
+                        e.target.value ? Number(e.target.value) : undefined
+                      )
+                    }
+                  >
+                    <option value="">Tip seç</option>
+                    {feederTypes.map((ft) => (
+                      <option key={ft.id} value={ft.id}>
+                        {ft.code} — {ft.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-600">Adet</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                    value={newFeederQty}
+                    onChange={(e) => setNewFeederQty(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 mt-auto">
+                <button
+                  disabled={busy || !newFeederTypeId}
+                  onClick={handleAddFeeders}
+                  className="w-full h-11 rounded-lg bg-slate-900 text-white px-4 text-sm font-semibold hover:bg-slate-800"
                 >
-                  <option value="">Tip seç</option>
-                  {feederTypes.map((ft) => (
-                    <option key={ft.id} value={ft.id}>
-                      {ft.code} — {ft.displayName}
-                    </option>
-                  ))}
-                </select>
+                  Stoka ekle
+                </button>
+                <button
+                  disabled={busy || !newFeederTypeId}
+                  onClick={() => {
+                    setRemoveFeederTypeId(newFeederTypeId);
+                    setRemoveFeederQty(newFeederQty);
+                    handleRemoveFeeders();
+                  }}
+                  className="w-full h-11 rounded-lg bg-red-600 text-white px-4 text-sm font-semibold hover:bg-red-700"
+                >
+                  Stok sil
+                </button>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm text-slate-600">Adet</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm"
-                  value={newFeederQty}
-                  onChange={(e) => setNewFeederQty(Number(e.target.value))}
-                />
-              </div>
-              <button
-                disabled={busy || !newFeederTypeId}
-                onClick={handleAddFeeders}
-                className="w-full h-11 rounded-lg bg-slate-900 text-white px-4 text-sm font-semibold hover:bg-slate-800 mt-auto"
-              >
-                Stoka ekle
-              </button>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-full flex flex-col space-y-3">

@@ -69,3 +69,59 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+export async function DELETE(req: NextRequest) {
+  let userId: number | undefined;
+  try {
+    const { user } = await requireAuth(req, [Role.ADMIN]);
+    userId = user.id;
+  } catch (err) {
+    return NextResponse.json(
+      { error: (err as Error).message },
+      { status: (err as Error).message === "Forbidden" ? 403 : 401 }
+    );
+  }
+
+  const { feederTypeId, quantity } = await req.json();
+  const qty = Number(quantity) || 1;
+
+  if (!feederTypeId || qty <= 0) {
+    return NextResponse.json(
+      { error: "feederTypeId ve pozitif adet gerekli" },
+      { status: 400 }
+    );
+  }
+
+  const feederType = await prisma.feederType.findUnique({
+    where: { id: Number(feederTypeId) },
+  });
+
+  if (!feederType) {
+    return NextResponse.json({ error: "Feeder tipi bulunamadı" }, { status: 404 });
+  }
+
+  const freeFeeders = await prisma.feeder.findMany({
+    where: { feederTypeId: feederType.id, machineId: null },
+    select: { id: true },
+    orderBy: { id: "asc" },
+    take: qty,
+  });
+
+  if (freeFeeders.length < qty) {
+    return NextResponse.json(
+      { error: "Silinecek yeterli boş feeder yok" },
+      { status: 400 }
+    );
+  }
+
+  const ids = freeFeeders.map((f) => f.id);
+  await prisma.feeder.deleteMany({ where: { id: { in: ids } } });
+
+  await logAudit({
+    action: "REMOVE_FEEDER_STOCK",
+    details: `Removed ${qty} feeders of type ${feederType.code}`,
+    userId,
+  });
+
+  return NextResponse.json({ success: true });
+}

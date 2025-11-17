@@ -1,8 +1,13 @@
 # PCB Feeder Takip – Hızlı Komutlar
 
 ```bash
-docker compose up -d db
-npm run dev -- --hostname 0.0.0.0 --port 3000
+cd ~/pcb-feeder-tracker
+docker compose up -d --build app db      # app + db başlat (build dahil)
+docker compose exec app npx prisma migrate deploy # gerekiyorsa
+docker compose exec app npx prisma db seed   # gerekiyorsa
+# Kod değiştiyse yeniden deploy: docker compose up -d --build app
+# Durdur: docker compose down
+# Loglar: docker compose logs -f app
 ```
 
 # Detaylı Bilgi
@@ -40,6 +45,19 @@ npm run dev -- --hostname 0.0.0.0 --port 3000
 Tarayıcı: `http://<sunucu-ip>:3000`
 
 VS Code/terminal kapanırsa yukarıdaki adımları tekrar terminal açıp çalıştırman yeterli (gerekirse `docker compose up -d db`).
+
+## Docker ile arka planda çalıştırma
+```bash
+# app + db'yi build ve başlat
+docker compose up -d --build app db
+# migrasyon
+docker compose exec app npx prisma migrate deploy
+# seed (gerekirse)
+docker compose exec app npx prisma db seed
+```
+Kodu değiştirdikten sonra güncellemek için: `docker compose up -d --build app`
+Dur-dur/başlat: `docker compose down` ve tekrar `docker compose up -d --build app db`
+Loglar: `docker compose logs -f app`
 
 ## Giriş bilgileri (seed)
 - admin / admin123 (ADMIN)

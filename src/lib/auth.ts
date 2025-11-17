@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { type Secret, type SignOptions } from "jsonwebtoken";
 import { Role } from "@prisma/client";
 import prisma from "./prisma";
 
@@ -19,6 +19,12 @@ export async function login(username: string, password: string) {
   if (!JWT_SECRET) {
     throw new Error("JWT_SECRET missing");
   }
+  const jwtSecret: Secret = JWT_SECRET;
+  const maybeNumber = Number(JWT_EXPIRES_IN);
+  const expiresIn: SignOptions["expiresIn"] = Number.isNaN(maybeNumber)
+    ? (JWT_EXPIRES_IN as SignOptions["expiresIn"])
+    : maybeNumber;
+  const jwtOptions: SignOptions = { expiresIn };
 
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user) {
@@ -32,8 +38,8 @@ export async function login(username: string, password: string) {
 
   const token = jwt.sign(
     { userId: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    jwtSecret,
+    jwtOptions
   );
 
   return {
